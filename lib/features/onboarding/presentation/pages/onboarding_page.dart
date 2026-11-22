@@ -2,17 +2,88 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/permissions/permission_service.dart';
 import '../../../../core/router/app_router.dart';
 import '../widgets/permission_card.dart';
 
 /// Welcome / Onboarding page shown on initial launch.
 ///
-/// Clearly explains to the user:
-/// 1. Why SMS read access is required
-/// 2. Why Contacts access is needed (to classify known vs unknown)
-/// 3. Strict offline and on-device privacy guarantee
-class OnboardingPage extends StatelessWidget {
-  const OnboardingPage({super.key});
+/// Follows Single Responsibility Principle (SRP):
+/// 1. Educates user on SMS & Contacts permissions and privacy guarantees.
+/// 2. Requests permissions through [IPermissionService].
+/// 3. Handles permanently denied states by routing users to system settings.
+class OnboardingPage extends StatefulWidget {
+  const OnboardingPage({
+    super.key,
+    this.permissionService = const PermissionService(),
+  });
+
+  final IPermissionService permissionService;
+
+  @override
+  State<OnboardingPage> createState() => _OnboardingPageState();
+}
+
+class _OnboardingPageState extends State<OnboardingPage> {
+  bool _isLoading = false;
+
+  Future<void> _handlePermissionRequest() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final status = await widget.permissionService.requestRequiredPermissions();
+
+      if (!mounted) return;
+
+      switch (status) {
+        case AppPermissionStatus.granted:
+          context.go(AppRouter.homePath);
+        case AppPermissionStatus.permanentlyDenied:
+          _showPermanentlyDeniedDialog();
+        case AppPermissionStatus.denied:
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                'برای خواندن و دسته‌بندی خودکار، دسترسی به پیامک و مخاطبین الزامی است.',
+              ),
+              duration: Duration(seconds: 4),
+            ),
+          );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
+  }
+
+  void _showPermanentlyDeniedDialog() {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        icon: const Icon(Icons.settings_suggest_rounded, size: 40),
+        title: const Text('دسترسی‌ها غیرفعال است'),
+        content: const Text(
+          'دسترسی پیامک یا مخاطبین رد شده است. لطفاً برای فعال‌سازی وارد تنظیمات برنامه شوید.\n\n'
+          'نکته در اندروید ۱۳ به بالا: اگر گزینه‌ها خاکستری بود، از منوی سه نقطه بالای صفحه تنظیمات، گزینه Allow restricted settings را انتخاب کنید.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('انصراف'),
+          ),
+          FilledButton.icon(
+            onPressed: () {
+              Navigator.of(ctx).pop();
+              widget.permissionService.openAppSettingsScreen();
+            },
+            icon: const Icon(Icons.open_in_new_rounded),
+            label: const Text('باز کردن تنظیمات'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,13 +161,23 @@ class OnboardingPage extends StatelessWidget {
                 width: double.infinity,
                 height: 54,
                 child: FilledButton.icon(
-                  onPressed: () {
-                    context.go(AppRouter.homePath);
-                  },
-                  icon: const Icon(Icons.arrow_back), // RTL direction: arrow_back points forward
-                  label: const Text(
-                    'شروع کنید',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                  onPressed: _isLoading ? null : _handlePermissionRequest,
+                  icon: _isLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2,
+                            color: Colors.white,
+                          ),
+                        )
+                      : const Icon(Icons.arrow_back), // RTL direction: arrow_back points forward
+                  label: Text(
+                    _isLoading ? 'در حال بررسی...' : 'تایید دسترسی و شروع',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ),

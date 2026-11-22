@@ -33,7 +33,7 @@ abstract final class AppRouter {
 
   /// The main router instance.
   static final GoRouter router = GoRouter(
-    initialLocation: homePath,
+    initialLocation: onboardingPath,
     routes: [
       // ── Onboarding (outside shell) ──
       GoRoute(
