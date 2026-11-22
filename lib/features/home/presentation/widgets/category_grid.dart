@@ -34,7 +34,11 @@ class CategoryGrid extends StatelessWidget {
         return CategoryCard(
           category: category,
           onTap: () {
-            context.push(AppRouter.categoryDetailPath(category.id));
+            if (category.id == 'recent') {
+              context.push(AppRouter.inboxPath);
+            } else {
+              context.push(AppRouter.categoryDetailPath(category.id));
+            }
           },
         );
       },

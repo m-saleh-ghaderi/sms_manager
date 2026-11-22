@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../features/category/presentation/pages/category_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
+import '../../features/inbox/presentation/pages/raw_inbox_page.dart';
 import '../../features/insights/presentation/pages/insights_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/shell/presentation/pages/app_shell.dart';
@@ -15,6 +16,7 @@ import '../../features/splash/presentation/pages/splash_page.dart';
 /// - `/home`            → Home page with category grid  (ShellRoute)
 /// - `/insights`        → Financial insights page       (ShellRoute)
 /// - `/settings`        → Settings page                 (ShellRoute)
+/// - `/inbox`           → Live SMS Inbox reader (raw messages from Android)
 /// - `/category/:id`    → Category detail (full-screen, outside shell)
 ///
 /// The [ShellRoute] wraps the bottom navigation tabs so the
@@ -25,6 +27,7 @@ abstract final class AppRouter {
   static const String homePath = '/home';
   static const String insightsPath = '/insights';
   static const String settingsPath = '/settings';
+  static const String inboxPath = '/inbox';
   static const String categoryPath = '/category/:id';
 
   /// Builds the category detail path for a given [categoryId].
@@ -39,6 +42,17 @@ abstract final class AppRouter {
       GoRoute(
         path: splashPath,
         builder: (context, state) => const SplashPage(),
+      ),
+
+      // ── Live SMS Inbox Reader (outside shell) ──
+      GoRoute(
+        path: inboxPath,
+        builder: (context, state) {
+          final sim = state.uri.queryParameters['sim'];
+          return RawInboxPage(
+            initialSimFilter: sim != null ? int.tryParse(sim) : null,
+          );
+        },
       ),
 
       // ── Main app shell with bottom navigation ──
