@@ -4,14 +4,14 @@ import 'package:go_router/go_router.dart';
 import '../../features/category/presentation/pages/category_page.dart';
 import '../../features/home/presentation/pages/home_page.dart';
 import '../../features/insights/presentation/pages/insights_page.dart';
-import '../../features/onboarding/presentation/pages/onboarding_page.dart';
 import '../../features/settings/presentation/pages/settings_page.dart';
 import '../../features/shell/presentation/pages/app_shell.dart';
+import '../../features/splash/presentation/pages/splash_page.dart';
 
 /// Centralized routing configuration using go_router.
 ///
 /// Route structure:
-/// - `/onboarding`      → Welcome page (shown once)
+/// - `/splash`          → Splash & Loading screen with automatic permission check
 /// - `/home`            → Home page with category grid  (ShellRoute)
 /// - `/insights`        → Financial insights page       (ShellRoute)
 /// - `/settings`        → Settings page                 (ShellRoute)
@@ -21,7 +21,7 @@ import '../../features/shell/presentation/pages/app_shell.dart';
 /// [NavigationBar] persists across tab switches.
 abstract final class AppRouter {
   // Route path constants (Single Source of Truth)
-  static const String onboardingPath = '/onboarding';
+  static const String splashPath = '/splash';
   static const String homePath = '/home';
   static const String insightsPath = '/insights';
   static const String settingsPath = '/settings';
@@ -33,12 +33,12 @@ abstract final class AppRouter {
 
   /// The main router instance.
   static final GoRouter router = GoRouter(
-    initialLocation: onboardingPath,
+    initialLocation: splashPath,
     routes: [
-      // ── Onboarding (outside shell) ──
+      // ── Splash Screen (outside shell) ──
       GoRoute(
-        path: onboardingPath,
-        builder: (context, state) => const OnboardingPage(),
+        path: splashPath,
+        builder: (context, state) => const SplashPage(),
       ),
 
       // ── Main app shell with bottom navigation ──
