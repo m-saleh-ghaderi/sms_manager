@@ -66,4 +66,23 @@ class AndroidSmsSource implements SmsSource {
       throw Exception('Failed to get inbox count: ${e.message}');
     }
   }
+
+  @override
+  Future<int?> findRecentSmsId({
+    required String address,
+    required String body,
+    DateTime? minDate,
+  }) async {
+    try {
+      final arguments = <String, dynamic>{
+        'address': address,
+        'body': body,
+        if (minDate != null) 'minDate': minDate.millisecondsSinceEpoch,
+      };
+      final id = await _channel.invokeMethod<num>('findRecentSmsId', arguments);
+      return id?.toInt();
+    } on PlatformException {
+      return null;
+    }
+  }
 }

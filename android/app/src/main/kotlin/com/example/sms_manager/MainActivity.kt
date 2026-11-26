@@ -9,13 +9,26 @@ import android.telephony.SubscriptionInfo
 import android.telephony.SubscriptionManager
 import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
     private val CHANNEL = "com.example.sms_manager/sms"
+    private val EVENT_CHANNEL = "com.example.sms_manager/sms_events"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
+
+        EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_CHANNEL)
+            .setStreamHandler(object : EventChannel.StreamHandler {
+                override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
+                    SmsEventBridge.attach(events)
+                }
+
+                override fun onCancel(arguments: Any?) {
+                    SmsEventBridge.detach()
+                }
+            })
 
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, CHANNEL).setMethodCallHandler { call, result ->
             when (call.method) {
@@ -35,6 +48,17 @@ class MainActivity : FlutterActivity() {
                         result.success(count)
                     } catch (e: Exception) {
                         result.error("SMS_COUNT_ERROR", e.localizedMessage, null)
+                    }
+                }
+                "findRecentSmsId" -> {
+                    val address = call.argument<String>("address") ?: ""
+                    val body = call.argument<String>("body") ?: ""
+                    val minDate = (call.argument<Number>("minDate"))?.toLong()
+                    try {
+                        val smsId = findRecentSmsId(address, body, minDate)
+                        result.success(smsId)
+                    } catch (e: Exception) {
+                        result.error("SMS_FIND_ERROR", e.localizedMessage, null)
                     }
                 }
                 else -> result.notImplemented()
@@ -140,5 +164,53 @@ class MainActivity : FlutterActivity() {
         return cursor?.use {
             if (it.moveToFirst()) it.getInt(0) else 0
         } ?: 0
+    }
+
+    private fun findRecentSmsId(address: String, body: String, minDate: Long?): Long? {
+        val uri: Uri = Telephony.Sms.Inbox.CONTENT_URI
+        val projection = arrayOf(
+            Telephony.Sms._ID,
+            Telephony.Sms.ADDRESS,
+            Telephony.Sms.BODY,
+            Telephony.Sms.DATE
+        )
+        val selection = if (minDate != null) "${Telephony.Sms.DATE} >= ?" else null
+        val selectionArgs = if (minDate != null) arrayOf(minDate.toString()) else null
+        val sortOrder = "${Telephony.Sms._ID} DESC LIMIT 10"
+
+        val cursor: Cursor? = contentResolver.query(
+            uri,
+            projection,
+            selection,
+            selectionArgs,
+            sortOrder
+        )
+
+        val targetDigits = address.filter { it.isDigit() }
+        val targetTail = if (targetDigits.length >= 7) targetDigits.takeLast(7) else targetDigits
+
+        cursor?.use {
+            val idIndex = it.getColumnIndex(Telephony.Sms._ID)
+            val addressIndex = it.getColumnIndex(Telephony.Sms.ADDRESS)
+            val bodyIndex = it.getColumnIndex(Telephony.Sms.BODY)
+
+            while (it.moveToNext()) {
+                val rowBody = if (bodyIndex != -1) it.getString(bodyIndex) ?: "" else ""
+                if (rowBody != body) continue
+
+                val rowAddress = if (addressIndex != -1) it.getString(addressIndex) ?: "" else ""
+                val addressMatches = if (targetTail.isNotEmpty()) {
+                    val rowDigits = rowAddress.filter { ch -> ch.isDigit() }
+                    rowDigits.endsWith(targetTail) || rowAddress.equals(address, ignoreCase = true)
+                } else {
+                    rowAddress.equals(address, ignoreCase = true)
+                }
+
+                if (addressMatches && idIndex != -1) {
+                    return it.getLong(idIndex)
+                }
+            }
+        }
+        return null
     }
 }

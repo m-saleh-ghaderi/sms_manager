@@ -14,4 +14,13 @@ abstract interface class SmsSource {
 
   /// Returns the total count of messages currently in the Inbox.
   Future<int> getInboxCount();
+
+  /// Looks up the `_id` of a recently received inbox SMS matching [address] and [body].
+  ///
+  /// Returns `null` if the Android SMS provider has not persisted it yet.
+  Future<int?> findRecentSmsId({
+    required String address,
+    required String body,
+    DateTime? minDate,
+  });
 }
