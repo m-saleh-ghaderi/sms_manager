@@ -31,6 +31,12 @@ class PermissionService implements IPermissionService {
     Permission.contacts,
   ];
 
+  static const List<Permission> _startupPermissions = [
+    Permission.sms,
+    Permission.contacts,
+    Permission.notification,
+  ];
+
   @override
   Future<bool> hasRequiredPermissions() async {
     for (final permission in _requiredPermissions) {
@@ -44,15 +50,18 @@ class PermissionService implements IPermissionService {
 
   @override
   Future<AppPermissionStatus> requestRequiredPermissions() async {
-    final statuses = await _requiredPermissions.request();
+    final statuses = await _startupPermissions.request();
 
-    final allGranted = statuses.values.every((status) => status.isGranted);
+    final allGranted = _requiredPermissions.every(
+      (permission) => statuses[permission]?.isGranted ?? false,
+    );
     if (allGranted) {
       return AppPermissionStatus.granted;
     }
 
-    final anyPermanentlyDenied =
-        statuses.values.any((status) => status.isPermanentlyDenied);
+    final anyPermanentlyDenied = _requiredPermissions.any(
+      (permission) => statuses[permission]?.isPermanentlyDenied ?? false,
+    );
     if (anyPermanentlyDenied) {
       return AppPermissionStatus.permanentlyDenied;
     }

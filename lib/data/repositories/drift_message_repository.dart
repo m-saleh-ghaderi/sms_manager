@@ -45,6 +45,28 @@ class DriftMessageRepository implements IMessageRepository {
           for (final row in existingRows) row.smsId: row,
         };
 
+        // Clean up any temporary negative-smsId placeholders replaced by real provider rows.
+        final incomingPositive = chunk.where((m) => m.smsId > 0).toList();
+        if (incomingPositive.isNotEmpty) {
+          final tempRows = await (_db.select(_db.messages)
+                ..where((t) => t.smsId.isSmallerThanValue(0)))
+              .get();
+          for (final temp in tempRows) {
+            final matchIndex = incomingPositive.indexWhere(
+              (m) =>
+                  m.normalizedAddress == temp.normalizedAddress &&
+                  m.body == temp.body,
+            );
+            if (matchIndex != -1) {
+              final incoming = incomingPositive[matchIndex];
+              existingBySmsId.putIfAbsent(incoming.smsId, () => temp);
+              await (_db.delete(_db.messages)
+                    ..where((t) => t.smsId.equals(temp.smsId)))
+                  .go();
+            }
+          }
+        }
+
         await _db.batch((batch) {
           for (final entity in chunk) {
             final existing = existingBySmsId[entity.smsId];
