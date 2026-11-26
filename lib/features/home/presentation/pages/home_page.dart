@@ -28,7 +28,7 @@ class HomePage extends StatefulWidget {
   State<HomePage> createState() => _HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
   late final IMessageRepository _repository;
   late final MessageSyncService _syncService;
 
@@ -39,13 +39,28 @@ class _HomePageState extends State<HomePage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _repository =
         widget.repository ?? AppDependencies.instance.messageRepository;
     _syncService = widget.syncService ?? AppDependencies.instance.syncService;
     _syncInbox();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _syncInbox();
+    }
+  }
+
   Future<void> _syncInbox() async {
+    if (_isSyncing) return;
     setState(() => _isSyncing = true);
     try {
       await _syncService.syncInbox();

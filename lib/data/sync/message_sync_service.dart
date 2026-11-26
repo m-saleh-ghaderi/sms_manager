@@ -1,4 +1,5 @@
 import '../../core/utils/phone_normalizer.dart';
+import '../../domain/classifier/message_classifier.dart';
 import '../../domain/entities/message_entity.dart';
 import '../../domain/repositories/message_repository.dart';
 import '../sources/contacts_source.dart';
@@ -8,18 +9,20 @@ import '../sources/sms_source.dart';
 ///
 /// Follows Single Responsibility Principle (SRP):
 /// Coordinates reading new messages since the last imported `smsId`,
-/// resolving sender types from contacts, and persisting them via [IMessageRepository].
-/// In Phase 2.4, the offline rule-based classifier will plug into this pipeline.
+/// resolving sender types from contacts, classifying with [MessageClassifier],
+/// and persisting them via [IMessageRepository].
 class MessageSyncService {
   const MessageSyncService({
     required this.smsSource,
     required this.contactsSource,
     required this.messageRepository,
+    this.classifier = const MessageClassifier(),
   });
 
   final SmsSource smsSource;
   final ContactsSource contactsSource;
   final IMessageRepository messageRepository;
+  final MessageClassifier classifier;
 
   /// Imports new SMS messages from the device inbox into local SQLite.
   ///
@@ -40,8 +43,27 @@ class MessageSyncService {
     final entities = rawMessages.map((sms) {
       final normalized = normalizePhone(sms.address);
       final senderType = detectSenderType(sms.address, contactNumbers);
-      final initialCategory =
-          senderType == SenderType.contact ? 'contacts' : 'unknown';
+
+      // Contacts category is determined by sender type, not body classifier.
+      if (senderType == SenderType.contact) {
+        return MessageEntity(
+          smsId: sms.smsId,
+          address: sms.address,
+          normalizedAddress: normalized,
+          body: sms.body,
+          date: sms.date,
+          isRead: sms.isRead,
+          simSlot: sms.simSlot,
+          senderType: senderType,
+          primaryCategory: 'contacts',
+        );
+      }
+
+      // Run offline rule-based classifier on the message body.
+      final result = classifier.classify(
+        body: sms.body,
+        senderAddress: sms.address,
+      );
 
       return MessageEntity(
         smsId: sms.smsId,
@@ -52,7 +74,9 @@ class MessageSyncService {
         isRead: sms.isRead,
         simSlot: sms.simSlot,
         senderType: senderType,
-        primaryCategory: initialCategory,
+        primaryCategory: result.categoryId,
+        amountRial: result.amountRial,
+        txType: result.txType,
       );
     }).toList();
 
