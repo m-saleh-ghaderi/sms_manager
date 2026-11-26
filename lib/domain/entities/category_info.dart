@@ -37,6 +37,24 @@ class CategoryInfo {
   /// Number of unread messages in this category.
   final int unreadCount;
 
+  CategoryInfo copyWith({
+    String? id,
+    String? name,
+    IconData? icon,
+    Color? color,
+    int? messageCount,
+    int? unreadCount,
+  }) {
+    return CategoryInfo(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      icon: icon ?? this.icon,
+      color: color ?? this.color,
+      messageCount: messageCount ?? this.messageCount,
+      unreadCount: unreadCount ?? this.unreadCount,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||

@@ -2,51 +2,59 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_constants.dart';
+import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/router/app_router.dart';
-import '../../../../data/sources/android_sms_source.dart';
-import '../../../../data/sources/sms_source.dart';
+import '../../../../data/sync/message_sync_service.dart';
+import '../../../../domain/entities/category_count.dart';
+import '../../../../domain/repositories/message_repository.dart';
 import '../widgets/category_grid.dart';
 import '../widgets/home_search_bar.dart';
 
-/// Home page displaying category grid with search, quick filters, and live inbox summary.
+/// Home page displaying category grid with search, quick filters, and persisted DB summary.
 ///
-/// Follows Clean Architecture: UI interacts with abstract [SmsSource] for live counts.
+/// Follows Clean Architecture: UI interacts with [IMessageRepository] streams and
+/// [MessageSyncService] without direct database or Android API coupling.
 class HomePage extends StatefulWidget {
   const HomePage({
     super.key,
-    this.smsSource = const AndroidSmsSource(),
+    this.repository,
+    this.syncService,
   });
 
-  final SmsSource smsSource;
+  final IMessageRepository? repository;
+  final MessageSyncService? syncService;
 
   @override
   State<HomePage> createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
+  late final IMessageRepository _repository;
+  late final MessageSyncService _syncService;
+
   // Selected SIM card filter: null = all, 1 = SIM 1, 2 = SIM 2
   int? _selectedSim;
-  int? _inboxCount;
-  bool _isLoadingCount = false;
+  bool _isSyncing = false;
 
   @override
   void initState() {
     super.initState();
-    _fetchInboxCount();
+    _repository =
+        widget.repository ?? AppDependencies.instance.messageRepository;
+    _syncService = widget.syncService ?? AppDependencies.instance.syncService;
+    _syncInbox();
   }
 
-  Future<void> _fetchInboxCount() async {
-    setState(() => _isLoadingCount = true);
+  Future<void> _syncInbox() async {
+    setState(() => _isSyncing = true);
     try {
-      final count = await widget.smsSource.getInboxCount();
-      if (!mounted) return;
-      setState(() {
-        _inboxCount = count;
-        _isLoadingCount = false;
-      });
+      await _syncService.syncInbox();
     } catch (_) {
-      if (!mounted) return;
-      setState(() => _isLoadingCount = false);
+      // Errors during background sync leave cached DB messages visible.
+    } finally {
+      if (mounted) {
+        setState(() => _isSyncing = false);
+      }
     }
   }
 
@@ -95,9 +103,15 @@ class _HomePageState extends State<HomePage> {
             ],
           ),
           IconButton(
-            icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'به‌روزرسانی پیام‌ها',
-            onPressed: _isLoadingCount ? null : _fetchInboxCount,
+            icon: _isSyncing
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(Icons.refresh_rounded),
+            tooltip: 'همگام‌سازی پیام‌ها',
+            onPressed: _isSyncing ? null : _syncInbox,
           ),
         ],
       ),
@@ -109,7 +123,7 @@ class _HomePageState extends State<HomePage> {
               onTap: _openInboxPage,
             ),
 
-            // Live Inbox Access Banner
+            // Persisted DB Inbox Access Banner
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
               child: Card(
@@ -125,7 +139,10 @@ class _HomePageState extends State<HomePage> {
                   borderRadius: BorderRadius.circular(16),
                   onTap: _openInboxPage,
                   child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
                     child: Row(
                       children: [
                         CircleAvatar(
@@ -149,15 +166,21 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const SizedBox(height: 2),
-                              Text(
-                                _isLoadingCount
-                                    ? 'در حال شمارش پیام‌ها...'
-                                    : _inboxCount != null
-                                        ? '$_inboxCount پیام دریافت شده در دستگاه'
-                                        : 'مشاهده پیام‌های خوانده شده از دستگاه',
-                                style: theme.textTheme.bodySmall?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
+                              StreamBuilder<int>(
+                                stream: _repository.watchTotalCount(
+                                  simSlot: _selectedSim,
                                 ),
+                                builder: (context, snapshot) {
+                                  final subtitle = _isSyncing && !snapshot.hasData
+                                      ? 'در حال همگام‌سازی و ذخیره...'
+                                      : '${snapshot.data ?? 0} پیام ذخیره‌شده در دیتابیس محلی';
+                                  return Text(
+                                    subtitle,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  );
+                                },
                               ),
                             ],
                           ),
@@ -192,10 +215,28 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
 
-            // Grid of Categories
-            const Expanded(
-              child: CategoryGrid(
-                categories: AppConstants.mockCategories,
+            // Grid of Categories backed by Drift DB Streams
+            Expanded(
+              child: StreamBuilder<Map<String, CategoryCount>>(
+                stream: _repository.watchCategoryCounts(
+                  simSlot: _selectedSim,
+                ),
+                builder: (context, snapshot) {
+                  final counts =
+                      snapshot.data ?? const <String, CategoryCount>{};
+                  final categories = AppConstants.mockCategories.map((cat) {
+                    final count = counts[cat.id] ?? CategoryCount.zero;
+                    return cat.copyWith(
+                      messageCount: count.total,
+                      unreadCount: count.unread,
+                    );
+                  }).toList();
+
+                  return CategoryGrid(
+                    categories: categories,
+                    selectedSim: _selectedSim,
+                  );
+                },
               ),
             ),
           ],

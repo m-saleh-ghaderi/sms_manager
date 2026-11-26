@@ -1,22 +1,26 @@
 import 'package:flutter/material.dart';
 
-import '../../../../domain/entities/sms_entity.dart';
+import '../../../../domain/entities/message_entity.dart';
 
-/// Individual list tile displaying a raw SMS message from the device inbox.
+/// Shared list tile displaying a persisted [MessageEntity].
 ///
-/// Follows Single Responsibility Principle (SRP):
-/// Renders an SMS message with its sender, timestamp, dual-SIM badge, and body.
-class RawSmsTile extends StatelessWidget {
-  const RawSmsTile({
+/// Supports unread indicator, dual-SIM badge, pin/star state toggles,
+/// and tap-to-open detail interaction.
+class MessageTile extends StatelessWidget {
+  const MessageTile({
     super.key,
     required this.message,
     this.onTap,
+    this.onToggleStar,
+    this.onTogglePin,
   });
 
-  final SmsEntity message;
+  final MessageEntity message;
   final VoidCallback? onTap;
+  final VoidCallback? onToggleStar;
+  final VoidCallback? onTogglePin;
 
-  String _formatDateTime(DateTime dt) {
+  static String formatDateTime(DateTime dt) {
     final year = dt.year;
     final month = dt.month.toString().padLeft(2, '0');
     final day = dt.day.toString().padLeft(2, '0');
@@ -35,24 +39,25 @@ class RawSmsTile extends StatelessWidget {
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(14),
         side: BorderSide(
-          color: message.isRead
-              ? theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
-              : theme.colorScheme.primary.withValues(alpha: 0.4),
-          width: message.isRead ? 0.5 : 1.2,
+          color: message.isPinned
+              ? theme.colorScheme.secondary.withValues(alpha: 0.55)
+              : message.isRead
+                  ? theme.colorScheme.outlineVariant.withValues(alpha: 0.3)
+                  : theme.colorScheme.primary.withValues(alpha: 0.4),
+          width: message.isPinned || !message.isRead ? 1.2 : 0.5,
         ),
       ),
       child: InkWell(
         borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(14),
+          padding: const EdgeInsets.fromLTRB(12, 12, 14, 10),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Top Row: Sender Address, SIM Badge, and Time
+              // Top Row: Unread indicator, Sender, SIM Badge, Time
               Row(
                 children: [
-                  // Unread dot indicator
                   if (!message.isRead) ...[
                     Container(
                       width: 8,
@@ -64,24 +69,32 @@ class RawSmsTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                   ],
-
-                  // Sender address
+                  if (message.isPinned) ...[
+                    Icon(
+                      Icons.push_pin_rounded,
+                      size: 15,
+                      color: theme.colorScheme.secondary,
+                    ),
+                    const SizedBox(width: 4),
+                  ],
                   Expanded(
                     child: Text(
                       message.address.isEmpty ? 'نامشخص' : message.address,
                       style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: message.isRead ? FontWeight.w600 : FontWeight.bold,
+                        fontWeight:
+                            message.isRead ? FontWeight.w600 : FontWeight.bold,
                         color: theme.colorScheme.onSurface,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
                   ),
-
-                  // SIM Card Badge
                   if (message.simSlot != null) ...[
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: message.simSlot == 1
                             ? theme.colorScheme.primaryContainer
@@ -101,10 +114,8 @@ class RawSmsTile extends StatelessWidget {
                     ),
                     const SizedBox(width: 8),
                   ],
-
-                  // Timestamp
                   Text(
-                    _formatDateTime(message.date),
+                    formatDateTime(message.date),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontSize: 11,
@@ -126,6 +137,48 @@ class RawSmsTile extends StatelessWidget {
                 maxLines: 3,
                 overflow: TextOverflow.ellipsis,
               ),
+
+              // Action Row: Star & Pin toggles
+              if (onToggleStar != null || onTogglePin != null) ...[
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    if (onTogglePin != null)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip:
+                            message.isPinned ? 'برداشتن پین' : 'پین کردن پیام',
+                        onPressed: onTogglePin,
+                        icon: Icon(
+                          message.isPinned
+                              ? Icons.push_pin_rounded
+                              : Icons.push_pin_outlined,
+                          size: 18,
+                          color: message.isPinned
+                              ? theme.colorScheme.secondary
+                              : theme.colorScheme.outline,
+                        ),
+                      ),
+                    if (onToggleStar != null)
+                      IconButton(
+                        visualDensity: VisualDensity.compact,
+                        tooltip:
+                            message.isStarred ? 'حذف نشان' : 'نشان‌دار کردن',
+                        onPressed: onToggleStar,
+                        icon: Icon(
+                          message.isStarred
+                              ? Icons.star_rounded
+                              : Icons.star_outline_rounded,
+                          size: 20,
+                          color: message.isStarred
+                              ? Colors.amber.shade700
+                              : theme.colorScheme.outline,
+                        ),
+                      ),
+                  ],
+                ),
+              ],
             ],
           ),
         ),

@@ -83,9 +83,13 @@ abstract final class AppRouter {
       // ── Category detail (full-screen, outside shell) ──
       GoRoute(
         path: categoryPath,
-        builder: (context, state) => CategoryPage(
-          categoryId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) {
+          final sim = state.uri.queryParameters['sim'];
+          return CategoryPage(
+            categoryId: state.pathParameters['id']!,
+            initialSimFilter: sim != null ? int.tryParse(sim) : null,
+          );
+        },
       ),
     ],
   );

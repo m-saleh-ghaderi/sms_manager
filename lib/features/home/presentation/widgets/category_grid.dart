@@ -13,12 +13,16 @@ class CategoryGrid extends StatelessWidget {
   const CategoryGrid({
     super.key,
     required this.categories,
+    this.selectedSim,
   });
 
   final List<CategoryInfo> categories;
+  final int? selectedSim;
 
   @override
   Widget build(BuildContext context) {
+    final simQuery = selectedSim != null ? '?sim=$selectedSim' : '';
+
     return GridView.builder(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       physics: const BouncingScrollPhysics(),
@@ -35,9 +39,11 @@ class CategoryGrid extends StatelessWidget {
           category: category,
           onTap: () {
             if (category.id == 'recent') {
-              context.push(AppRouter.inboxPath);
+              context.push('${AppRouter.inboxPath}$simQuery');
             } else {
-              context.push(AppRouter.categoryDetailPath(category.id));
+              context.push(
+                '${AppRouter.categoryDetailPath(category.id)}$simQuery',
+              );
             }
           },
         );
