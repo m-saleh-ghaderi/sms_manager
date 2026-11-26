@@ -163,9 +163,9 @@ class _HomePageState extends State<HomePage> with WidgetsBindingObserver {
                         CircleAvatar(
                           radius: 20,
                           backgroundColor: theme.colorScheme.primary,
-                          child: const Icon(
+                          child: Icon(
                             Icons.all_inbox_rounded,
-                            color: Colors.white,
+                            color: theme.colorScheme.onPrimary,
                             size: 20,
                           ),
                         ),

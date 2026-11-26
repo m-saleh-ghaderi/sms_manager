@@ -5,11 +5,12 @@ import '../../data/sources/contacts_source.dart';
 import '../../data/sources/sms_source.dart';
 import '../../data/sync/message_sync_service.dart';
 import '../../domain/repositories/message_repository.dart';
+import '../theme/theme_controller.dart';
 
 /// Lightweight dependency container for app-wide data services.
 ///
-/// Centralizes lifecycle of the SQLite [AppDatabase], repositories, and sync services
-/// prior to Riverpod integration in Phase 3.
+/// Centralizes lifecycle of the SQLite [AppDatabase], repositories, sync services,
+/// and UI controllers prior to Riverpod integration in Phase 3.
 class AppDependencies {
   AppDependencies._({
     required this.database,
@@ -17,6 +18,7 @@ class AppDependencies {
     required this.smsSource,
     required this.contactsSource,
     required this.syncService,
+    required this.themeController,
   });
 
   static AppDependencies? _instance;
@@ -36,6 +38,7 @@ class AppDependencies {
       contactsSource: contactsSource,
       messageRepository: messageRepository,
     );
+    final themeController = ThemeController();
 
     return AppDependencies._(
       database: database,
@@ -43,6 +46,7 @@ class AppDependencies {
       smsSource: smsSource,
       contactsSource: contactsSource,
       syncService: syncService,
+      themeController: themeController,
     );
   }
 
@@ -51,4 +55,5 @@ class AppDependencies {
   final SmsSource smsSource;
   final ContactsSource contactsSource;
   final MessageSyncService syncService;
+  final ThemeController themeController;
 }

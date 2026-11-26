@@ -111,10 +111,12 @@ class _StatTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.6),
+        color: theme.colorScheme.surface.withValues(alpha: 0.78),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Column(
@@ -126,7 +128,10 @@ class _StatTile extends StatelessWidget {
               const SizedBox(width: 4),
               Text(
                 title,
-                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  fontWeight: FontWeight.w500,
+                  color: theme.colorScheme.onSurface,
+                ),
               ),
             ],
           ),

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import 'app_colors.dart';
 import 'app_text_styles.dart';
@@ -7,15 +8,6 @@ import 'app_text_styles.dart';
 ///
 /// Both themes use Material 3 with a seed-based [ColorScheme] and
 /// the Vazirmatn font family for full Persian/Arabic text support.
-///
-/// Usage in [MaterialApp]:
-/// ```dart
-/// MaterialApp(
-///   theme: AppTheme.light,
-///   darkTheme: AppTheme.dark,
-///   themeMode: ThemeMode.system,
-/// )
-/// ```
 abstract final class AppTheme {
   /// Light theme configuration.
   static ThemeData get light => _buildTheme(Brightness.light);
@@ -28,19 +20,29 @@ abstract final class AppTheme {
       seedColor: AppColors.seed,
       brightness: brightness,
     );
+    final isDark = brightness == Brightness.dark;
 
     return ThemeData(
       useMaterial3: true,
       brightness: brightness,
       colorScheme: colorScheme,
+      scaffoldBackgroundColor: colorScheme.surface,
       textTheme: AppTextStyles.textTheme,
       fontFamily: AppTextStyles.fontFamily,
 
       // ── Card ──
       cardTheme: CardThemeData(
-        elevation: 1,
+        elevation: isDark ? 0 : 1,
+        color: isDark
+            ? colorScheme.surfaceContainerLow
+            : colorScheme.surfaceContainerLowest,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
+          side: isDark
+              ? BorderSide(
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.25),
+                )
+              : BorderSide.none,
         ),
       ),
 
@@ -51,6 +53,25 @@ abstract final class AppTheme {
         foregroundColor: colorScheme.onSurface,
         elevation: 0,
         scrolledUnderElevation: 1,
+        systemOverlayStyle: SystemUiOverlayStyle(
+          statusBarColor: Colors.transparent,
+          statusBarIconBrightness: isDark ? Brightness.light : Brightness.dark,
+          statusBarBrightness: brightness,
+        ),
+      ),
+
+      // ── BottomSheet & Dialog ──
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: colorScheme.surfaceContainerLow,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(20),
+        ),
       ),
 
       // ── NavigationBar (bottom) ──
@@ -61,7 +82,12 @@ abstract final class AppTheme {
 
       // ── SearchBar ──
       searchBarTheme: SearchBarThemeData(
-        elevation: WidgetStatePropertyAll(1),
+        elevation: const WidgetStatePropertyAll(1),
+        backgroundColor: WidgetStatePropertyAll(
+          isDark
+              ? colorScheme.surfaceContainerHigh
+              : colorScheme.surfaceContainerLowest,
+        ),
         shape: WidgetStatePropertyAll(
           RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(28),
