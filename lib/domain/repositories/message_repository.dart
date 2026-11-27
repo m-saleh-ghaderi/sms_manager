@@ -49,6 +49,13 @@ abstract interface class IMessageRepository {
   /// Watches total and unread counts mapped by category ID (including virtual categories).
   Stream<Map<String, CategoryCount>> watchCategoryCounts({int? simSlot});
 
+  /// Watches bank category messages within `[startDate, endDate]` ordered newest-first.
+  Stream<List<MessageEntity>> watchBankTransactions({
+    int? simSlot,
+    DateTime? startDate,
+    DateTime? endDate,
+  });
+
   /// Sets the starred state for the message with [smsId].
   Future<void> toggleStarred(int smsId, bool isStarred);
 

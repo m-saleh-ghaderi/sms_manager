@@ -173,6 +173,20 @@ class DriftMessageRepository implements IMessageRepository {
   }
 
   @override
+  Stream<List<MessageEntity>> watchBankTransactions({
+    int? simSlot,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) {
+    return _watchFilteredMessages(
+      categoryId: 'bank',
+      simSlot: simSlot,
+      startDate: startDate,
+      endDate: endDate,
+    );
+  }
+
+  @override
   Stream<Map<String, CategoryCount>> watchCategoryCounts({int? simSlot}) {
     final whereClause = simSlot != null ? 'WHERE sim_slot = ?' : '';
     final variables = simSlot != null
@@ -275,6 +289,8 @@ class DriftMessageRepository implements IMessageRepository {
     bool? isPinned,
     int? simSlot,
     String? searchQuery,
+    DateTime? startDate,
+    DateTime? endDate,
     int? limit,
   }) {
     final query = _db.select(_db.messages)
@@ -292,6 +308,12 @@ class DriftMessageRepository implements IMessageRepository {
         }
         if (simSlot != null) {
           predicate = predicate & t.simSlot.equals(simSlot);
+        }
+        if (startDate != null) {
+          predicate = predicate & t.date.isBiggerOrEqualValue(startDate);
+        }
+        if (endDate != null) {
+          predicate = predicate & t.date.isSmallerOrEqualValue(endDate);
         }
 
         final trimmed = searchQuery?.trim() ?? '';
