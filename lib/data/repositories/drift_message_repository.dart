@@ -20,7 +20,9 @@ class DriftMessageRepository implements IMessageRepository {
   @override
   Future<int?> getLatestSmsId() async {
     final maxExp = _db.messages.smsId.max();
-    final query = _db.selectOnly(_db.messages)..addColumns([maxExp]);
+    final query = _db.selectOnly(_db.messages)
+      ..addColumns([maxExp])
+      ..where(_db.messages.smsId.isBiggerThanValue(0));
     final row = await query.getSingleOrNull();
     return row?.read(maxExp);
   }
@@ -273,6 +275,17 @@ class DriftMessageRepository implements IMessageRepository {
         }
       });
     });
+  }
+
+  @override
+  Future<int> deleteBySmsIdRange(int minSmsId, int maxSmsId) async {
+    return (_db.delete(_db.messages)
+          ..where(
+            (t) =>
+                t.smsId.isBiggerOrEqualValue(minSmsId) &
+                t.smsId.isSmallerOrEqualValue(maxSmsId),
+          ))
+        .go();
   }
 
   @override

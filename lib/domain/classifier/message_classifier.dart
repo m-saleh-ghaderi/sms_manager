@@ -213,9 +213,9 @@ class MessageClassifier {
     r'(?:\b\d{4}[-\s*]{1,4}(?:\*{4}|x{4})[-\s*]{1,4}(\d{4})\b|(?:کارت|حساب)\s*[:=]?\s*\*?(\d{4})(?!\d|\s*(?:ریال|ريال|تومان|تومن)))',
   );
 
-  /// Regex for Rial/Toman amounts like "1,500,000 ریال" or "150,000 تومان"
+  /// Regex for Rial/Toman amounts like "1,500,000 ریال", "2,500,000- ریال", or "150,000 تومان"
   static final _amountRegex = RegExp(
-    r'(?:مبلغ|مقدار|مبلغ:?)?\s*([0-9][0-9,\.]*)\s*(?:ریال|ريال|تومان|تومن|rials?|tomans?)',
+    r'(?:مبلغ|مقدار|مبلغ:?)?\s*([+-]?)\s*([0-9][0-9,\.]*)\s*([+-]?)\s*(?:ریال|ريال|تومان|تومن|rials?|tomans?)',
     caseSensitive: false,
   );
 
@@ -634,6 +634,8 @@ class MessageClassifier {
         text.contains('واريز') ||
         text.contains('دریافت') ||
         text.contains('بستانکار') ||
+        text.contains('برگشت وجه') ||
+        text.contains('سود سپرده') ||
         text.contains('deposit') ||
         text.contains('credit')) {
       txType = TransactionType.credit;
@@ -642,6 +644,10 @@ class MessageClassifier {
         text.contains('خريد') ||
         text.contains('بدهکار') ||
         text.contains('کسر') ||
+        text.contains('انتقال') ||
+        text.contains('پرداخت') ||
+        text.contains('کارت به کارت') ||
+        text.contains('کارمزد') ||
         text.contains('withdraw') ||
         text.contains('debit') ||
         text.contains('purchase')) {
@@ -656,18 +662,37 @@ class MessageClassifier {
     for (final m in matches) {
       final prefixStart = m.start >= 16 ? m.start - 16 : 0;
       final prefix = text.substring(prefixStart, m.start);
-      final isBalance = prefix.contains('مانده') || prefix.contains('موجودی');
+      final isBalance = prefix.contains('مانده') ||
+          prefix.contains('موجودی') ||
+          prefix.contains('balance');
       if (!isBalance) {
         selectedMatch = m;
         break;
       }
     }
+
+    // Pure balance inquiries (without a separate transaction amount or direction)
+    // should populate balanceRial only, not amountRial.
+    if (selectedMatch == null && txType == null) {
+      return null;
+    }
     final match = selectedMatch ?? matches.first;
 
-    final rawAmount = match.group(1) ?? '';
+    final signPrefix = match.group(1) ?? '';
+    final rawAmount = (match.group(2) ?? '').replaceAll(RegExp(r'[,\.]+$'), '');
+    final signSuffix = match.group(3) ?? '';
     final cleanedAmount = rawAmount.replaceAll(RegExp(r'[,\.]'), '');
     final amount = int.tryParse(cleanedAmount);
     if (amount == null || amount <= 0) return null;
+
+    // Fallback direction from inline +/- sign (e.g. Bank Melli `2,500,000- ریال`)
+    if (txType == null) {
+      if (signPrefix == '-' || signSuffix == '-') {
+        txType = TransactionType.debit;
+      } else if (signPrefix == '+' || signSuffix == '+') {
+        txType = TransactionType.credit;
+      }
+    }
 
     // If unit is Toman, convert to Rial
     final unitPart = text.substring(match.start, match.end).toLowerCase();

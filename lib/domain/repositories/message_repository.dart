@@ -73,6 +73,9 @@ abstract interface class IMessageRepository {
   /// `balanceRial`, `cardTail`) for a batch of existing rows.
   Future<void> updateBankMetadataBatch(List<MessageEntity> updated);
 
+  /// Deletes messages whose `smsId` falls within `[minSmsId, maxSmsId]` inclusive.
+  Future<int> deleteBySmsIdRange(int minSmsId, int maxSmsId);
+
   /// Sets the starred state for the message with [smsId].
   Future<void> toggleStarred(int smsId, bool isStarred);
 
