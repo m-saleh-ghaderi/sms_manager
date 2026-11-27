@@ -1,8 +1,10 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/di/app_dependencies.dart';
 import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
+import '../../../../core/utils/debug_bank_sms_seeder.dart';
 import '../../../../core/utils/jalali_date.dart';
 import '../../../../data/sync/message_sync_service.dart';
 import '../../../../domain/entities/financial_insights.dart';
@@ -81,6 +83,23 @@ class _InsightsPageState extends State<InsightsPage> {
     setState(() => _timeFilter = filter);
   }
 
+  Future<void> _handleDebugSeedAction(String action) async {
+    final seeder = DebugBankSmsSeeder(repository: _repository);
+    if (action == 'seed') {
+      final count = await seeder.seedSampleBankData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$count تراکنش آزمایشی از ۱۰ بانک در ۱۲ ماه اضافه شد')),
+      );
+    } else if (action == 'clear') {
+      final deleted = await seeder.clearDemoData();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('$deleted تراکنش آزمایشی حذف شد')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -94,6 +113,22 @@ class _InsightsPageState extends State<InsightsPage> {
       appBar: AppBar(
         title: const Text('تراکنش‌ها و آمار مالی'),
         actions: [
+          if (kDebugMode)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.science_outlined),
+              tooltip: 'داده‌های آزمایشی بانک‌ها',
+              onSelected: _handleDebugSeedAction,
+              itemBuilder: (context) => const [
+                PopupMenuItem(
+                  value: 'seed',
+                  child: Text('تولید ۵۰ تراکنش نمونه (۱۰ بانک / ۱۲ ماه)'),
+                ),
+                PopupMenuItem(
+                  value: 'clear',
+                  child: Text('حذف تراکنش‌های آزمایشی'),
+                ),
+              ],
+            ),
           PopupMenuButton<int?>(
             icon: Badge(
               isLabelVisible: _selectedSim != null,

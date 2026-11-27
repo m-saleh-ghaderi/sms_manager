@@ -29,7 +29,8 @@ class _MonthlyCashflowBarChartState extends State<MonthlyCashflowBarChart> {
   @override
   void didUpdateWidget(covariant MonthlyCashflowBarChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_selectedIndex != null && _selectedIndex! >= widget.months.length) {
+    if (widget.months.length != oldWidget.months.length ||
+        (_selectedIndex != null && _selectedIndex! >= widget.months.length)) {
       _selectedIndex = null;
     }
   }
