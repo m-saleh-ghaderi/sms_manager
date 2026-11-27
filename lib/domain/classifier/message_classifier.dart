@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../core/utils/text_normalizer.dart';
 import '../entities/message_entity.dart';
+import 'bank_identifier.dart';
 
 /// Result of classifying a single SMS message.
 @immutable
@@ -10,6 +11,9 @@ class ClassificationResult {
     required this.categoryId,
     this.amountRial,
     this.txType,
+    this.bankName,
+    this.balanceRial,
+    this.cardTail,
   });
 
   /// The primary category ID (e.g. `'bank'`, `'otp'`).
@@ -21,9 +25,18 @@ class ClassificationResult {
   /// Credit or debit direction (bank messages only).
   final TransactionType? txType;
 
+  /// Canonical Persian bank name or sender label (bank messages only).
+  final String? bankName;
+
+  /// Latest account/card balance in Rials extracted from `مانده` / `موجودی` (bank messages only).
+  final int? balanceRial;
+
+  /// Last 4 digits of card/account number when present (e.g. `'4532'`).
+  final String? cardTail;
+
   @override
   String toString() =>
-      'ClassificationResult(cat: $categoryId, amount: $amountRial, tx: $txType)';
+      'ClassificationResult(cat: $categoryId, bank: $bankName, amount: $amountRial, balance: $balanceRial, card: $cardTail, tx: $txType)';
 }
 
 /// Offline rule-based classifier for Iranian SMS messages.
@@ -58,7 +71,12 @@ class MessageClassifier {
     }
 
     // ── 2. Bank / Financial ──
-    final bankResult = _matchesBank(text, addr);
+    final bankResult = _matchesBank(
+      text: text,
+      addr: addr,
+      rawBody: body,
+      rawAddress: senderAddress,
+    );
     if (bankResult != null) {
       return bankResult;
     }
@@ -109,12 +127,8 @@ class MessageClassifier {
 
   /// Checks whether [word] appears as a standalone token in [text]
   /// (not as a substring inside another word, e.g. "پایا" in "پایان").
-  static bool _containsWord(String text, String word) {
-    final pattern = RegExp(
-      '(?<![\\u0621-\\u064A\\u067E\\u0686\\u0698\\u06AF\\u06A9\\u06CCa-z0-9])${RegExp.escape(word)}(?![\\u0621-\\u064A\\u067E\\u0686\\u0698\\u06AF\\u06A9\\u06CCa-z0-9])',
-    );
-    return pattern.hasMatch(text);
-  }
+  static bool _containsWord(String text, String word) =>
+      BankIdentifier.containsWord(text, word);
 
   // ─────────────────────────── OTP ───────────────────────────
 
@@ -191,44 +205,13 @@ class MessageClassifier {
     'وام',
   ];
 
-  static const _bankSenders = [
-    'bmi', 'bsi', 'bpi', 'mellat', 'tejarat', 'saderat', 'melli',
-    'maskan', 'sepah', 'parsian', 'pasargad', 'eghtesad', 'saman',
-    'ansar', 'keshavarzi', 'refah', 'shahr', 'ayandeh', 'dey',
-    'resalat', 'karafarin', 'sina', 'hekmat', 'mehr', 'gardeshgari',
-    'sanat', 'iran zamin', 'بانک', 'mellibank', // common bank sender IDs
-  ];
+  /// Regex matching card numbers like *1234, **1234, ***1234, ****1234
+  static final _cardStarRegex = RegExp(r'\*{1,4}(\d{4})');
 
-  static const _bankNamePhrases = [
-    'بانک ملی',
-    'بانک ملت',
-    'بانک صادرات',
-    'بانک تجارت',
-    'بانک سپه',
-    'بانک مسکن',
-    'بانک کشاورزی',
-    'بانک رفاه',
-    'بانک پاسارگاد',
-    'بانک پارسیان',
-    'بانک سامان',
-    'بانک اقتصاد',
-    'بانک شهر',
-    'بانک اینده',
-    'بانک دی',
-    'بانک سرمایه',
-    'بانک انصار',
-    'بانک ایران زمین',
-    'بانک کارافرین',
-    'بانک سینا',
-    'بانک حکمت',
-    'بانک رسالت',
-    'بانک مهر',
-    'بانک گردشگری',
-    'بانک صنعت',
-  ];
-
-  /// Regex matching card numbers like *1234 or **1234 or ***1234
-  static final _cardTailRegex = RegExp(r'\*{1,4}\d{4}');
+  /// Regex matching masked 16-digit PAN like `6037-****-****-4532` or `کارت 4532`
+  static final _cardKeywordRegex = RegExp(
+    r'(?:\b\d{4}[-\s*]{1,4}(?:\*{4}|x{4})[-\s*]{1,4}(\d{4})\b|(?:کارت|حساب)\s*[:=]?\s*\*?(\d{4})(?!\d|\s*(?:ریال|ريال|تومان|تومن)))',
+  );
 
   /// Regex for Rial/Toman amounts like "1,500,000 ریال" or "150,000 تومان"
   static final _amountRegex = RegExp(
@@ -236,25 +219,26 @@ class MessageClassifier {
     caseSensitive: false,
   );
 
-  ClassificationResult? _matchesBank(String text, String addr) {
-    var isBank = false;
+  /// Regex extracting balance after `مانده` / `موجودی` (with optional trailing Rial/Toman).
+  static final _balanceRegex = RegExp(
+    r'(?:مانده(?:\s+حساب|\s+قابل\s+برداشت|\s+فعلی)?|موجودی(?:\s+حساب|\s+فعلی)?|balance|bal)\s*[:=\-]?\s*([0-9][0-9,\.]*)(?:\s*(ریال|ريال|تومان|تومن|rials?|tomans?))?',
+    caseSensitive: false,
+  );
 
-    // Check bank sender addresses using token boundaries (avoids "shahr" in "shahrdari")
-    for (final sender in _bankSenders) {
-      if (_containsWord(addr, sender) || addr.contains('bank$sender') || addr.contains('${sender}bank')) {
-        isBank = true;
-        break;
-      }
-    }
+  ClassificationResult? _matchesBank({
+    required String text,
+    required String addr,
+    required String rawBody,
+    required String rawAddress,
+  }) {
+    final knownBank = BankIdentifier.matchKnownBank(
+      normalizedText: text,
+      normalizedAddress: addr,
+    );
+    var isBank = knownBank != null;
 
-    // Check bank name phrases in body
-    if (!isBank) {
-      for (final name in _bankNamePhrases) {
-        if (text.contains(name)) {
-          isBank = true;
-          break;
-        }
-      }
+    if (!isBank && _containsWord(addr, 'بانک')) {
+      isBank = true;
     }
 
     // Check bank action phrases in body
@@ -278,18 +262,25 @@ class MessageClassifier {
     }
 
     // Check card tail pattern
-    if (!isBank && _cardTailRegex.hasMatch(text)) {
+    if (!isBank && _cardStarRegex.hasMatch(text)) {
       isBank = true;
     }
 
     if (!isBank) return null;
 
-    // Parse transaction amount and direction
     final tx = _parseTransaction(text);
+    final balanceRial = _parseBalance(text);
+    final cardTail = _parseCardTail(text);
+    final bankName = knownBank ??
+        BankIdentifier.resolveBankName(rawBody: rawBody, rawAddress: rawAddress);
+
     return ClassificationResult(
       categoryId: 'bank',
       amountRial: tx?.amountRial,
       txType: tx?.txType,
+      bankName: bankName,
+      balanceRial: balanceRial,
+      cardTail: cardTail,
     );
   }
 
@@ -689,6 +680,32 @@ class MessageClassifier {
       amountRial: amountRial,
       txType: txType,
     );
+  }
+
+  int? _parseBalance(String text) {
+    final match = _balanceRegex.firstMatch(text);
+    if (match == null) return null;
+
+    final rawAmount = (match.group(1) ?? '').replaceAll(RegExp(r'[,\.]+$'), '');
+    final cleanedAmount = rawAmount.replaceAll(RegExp(r'[,\.]'), '');
+    final amount = int.tryParse(cleanedAmount);
+    if (amount == null || amount < 0) return null;
+
+    final unit = (match.group(2) ?? '').toLowerCase();
+    final isToman =
+        unit.contains('تومان') || unit.contains('تومن') || unit.contains('toman');
+    return isToman ? amount * 10 : amount;
+  }
+
+  String? _parseCardTail(String text) {
+    final starMatch = _cardStarRegex.firstMatch(text);
+    if (starMatch != null) return starMatch.group(1);
+
+    final keywordMatch = _cardKeywordRegex.firstMatch(text);
+    if (keywordMatch != null) {
+      return keywordMatch.group(1) ?? keywordMatch.group(2);
+    }
+    return null;
   }
 }
 

@@ -127,3 +127,50 @@ class FinancialInsightsSummary {
 
   int get netRial => totalCreditRial - totalDebitRial;
 }
+
+/// Latest balance snapshot for a single card/account within a bank.
+@immutable
+class BankCardBalance {
+  const BankCardBalance({
+    this.cardTail,
+    required this.balanceRial,
+    required this.updatedAt,
+  });
+
+  /// Last 4 digits of the card/account, or `null` if not specified in SMS.
+  final String? cardTail;
+  final int balanceRial;
+  final DateTime updatedAt;
+}
+
+/// Aggregated latest balance summary for a single bank across its cards.
+@immutable
+class BankBalanceSummary {
+  const BankBalanceSummary({
+    required this.bankName,
+    required this.totalBalanceRial,
+    required this.latestUpdate,
+    required this.cards,
+  });
+
+  final String bankName;
+  final int totalBalanceRial;
+  final DateTime latestUpdate;
+  final List<BankCardBalance> cards;
+}
+
+/// Portfolio balance across all banks (or a selected single bank).
+@immutable
+class PortfolioBalanceSummary {
+  const PortfolioBalanceSummary({
+    required this.totalBalanceRial,
+    required this.banks,
+    this.latestUpdate,
+  });
+
+  final int totalBalanceRial;
+  final List<BankBalanceSummary> banks;
+  final DateTime? latestUpdate;
+
+  bool get hasAnyBalance => banks.isNotEmpty;
+}

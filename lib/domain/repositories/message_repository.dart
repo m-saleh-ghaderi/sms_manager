@@ -52,9 +52,26 @@ abstract interface class IMessageRepository {
   /// Watches bank category messages within `[startDate, endDate]` ordered newest-first.
   Stream<List<MessageEntity>> watchBankTransactions({
     int? simSlot,
+    String? bankName,
     DateTime? startDate,
     DateTime? endDate,
   });
+
+  /// Watches distinct canonical bank names present in local bank messages.
+  Stream<List<String>> watchDistinctBanks({int? simSlot});
+
+  /// Watches bank messages containing a parsed balance ordered newest-first.
+  Stream<List<MessageEntity>> watchBankBalanceMessages({
+    int? simSlot,
+    String? bankName,
+  });
+
+  /// Returns stored `'bank'` messages whose bank metadata (`bankName`) is missing.
+  Future<List<MessageEntity>> getBankMessagesNeedingBackfill();
+
+  /// Updates extracted bank metadata (`bankName`, `amountRial`, `txType`,
+  /// `balanceRial`, `cardTail`) for a batch of existing rows.
+  Future<void> updateBankMetadataBatch(List<MessageEntity> updated);
 
   /// Sets the starred state for the message with [smsId].
   Future<void> toggleStarred(int smsId, bool isStarred);

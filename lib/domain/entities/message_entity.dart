@@ -28,6 +28,9 @@ class MessageEntity {
     this.isPinned = false,
     this.amountRial,
     this.txType,
+    this.bankName,
+    this.balanceRial,
+    this.cardTail,
     this.userOverride = false,
   });
 
@@ -73,6 +76,15 @@ class MessageEntity {
   /// Parsed transaction direction (if applicable).
   final TransactionType? txType;
 
+  /// Canonical bank display name (bank messages only).
+  final String? bankName;
+
+  /// Parsed post-transaction account/card balance in Rial (if applicable).
+  final int? balanceRial;
+
+  /// Last 4 digits of card/account number when detected (e.g. `'4532'`).
+  final String? cardTail;
+
   /// True when the user manually overrode [primaryCategory].
   final bool userOverride;
 
@@ -91,6 +103,9 @@ class MessageEntity {
     bool? isPinned,
     int? amountRial,
     TransactionType? txType,
+    String? bankName,
+    int? balanceRial,
+    String? cardTail,
     bool? userOverride,
   }) {
     return MessageEntity(
@@ -108,6 +123,9 @@ class MessageEntity {
       isPinned: isPinned ?? this.isPinned,
       amountRial: amountRial ?? this.amountRial,
       txType: txType ?? this.txType,
+      bankName: bankName ?? this.bankName,
+      balanceRial: balanceRial ?? this.balanceRial,
+      cardTail: cardTail ?? this.cardTail,
       userOverride: userOverride ?? this.userOverride,
     );
   }

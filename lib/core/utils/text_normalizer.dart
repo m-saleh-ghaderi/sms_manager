@@ -15,6 +15,9 @@ String normalizeDigits(String input) {
     } else if (rune >= 0x0660 && rune <= 0x0669) {
       // Arabic-Indic digits ٠-٩
       buffer.writeCharCode(0x30 + (rune - 0x0660));
+    } else if (rune == 0x066C) {
+      // Arabic thousands separator ٬ → ASCII comma
+      buffer.write(',');
     } else {
       buffer.writeCharCode(rune);
     }
