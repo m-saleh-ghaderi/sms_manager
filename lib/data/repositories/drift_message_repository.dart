@@ -127,6 +127,7 @@ class DriftMessageRepository implements IMessageRepository {
   Stream<List<MessageEntity>> watchByCategory(
     String categoryId, {
     int? simSlot,
+    String? bankName,
     String? searchQuery,
   }) {
     return switch (categoryId) {
@@ -145,6 +146,7 @@ class DriftMessageRepository implements IMessageRepository {
       _ => _watchFilteredMessages(
           categoryId: categoryId,
           simSlot: simSlot,
+          bankName: bankName,
           searchQuery: searchQuery,
         ),
     };
@@ -249,7 +251,10 @@ class DriftMessageRepository implements IMessageRepository {
   Future<List<MessageEntity>> getBankMessagesNeedingBackfill() async {
     final rows = await (_db.select(_db.messages)
           ..where(
-            (t) => t.primaryCategory.equals('bank') & t.bankName.isNull(),
+            (t) =>
+                t.primaryCategory.equals('bank') &
+                (t.bankName.isNull() |
+                    (t.amountRial.isNotNull() & t.txType.isNull())),
           ))
         .get();
     return rows.map(_toEntity).toList();

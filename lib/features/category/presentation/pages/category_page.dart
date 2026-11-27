@@ -3,22 +3,51 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../core/constants/app_constants.dart';
 import '../../../../core/di/app_dependencies.dart';
+import '../../../../core/widgets/bank_filter_strip.dart';
+import '../../../../data/sync/message_sync_service.dart';
 import '../../../../domain/entities/category_info.dart';
 import '../../../../domain/repositories/message_repository.dart';
 import '../../../inbox/presentation/widgets/message_list_panel.dart';
 
 /// Displays locally persisted messages belonging to [categoryId].
-class CategoryPage extends StatelessWidget {
+///
+/// For `'bank'`, also provides dynamic horizontal bank filter chips matching
+/// the exact bank colors used on the Financial Insights tab.
+class CategoryPage extends StatefulWidget {
   const CategoryPage({
     super.key,
     required this.categoryId,
     this.initialSimFilter,
     this.repository,
+    this.syncService,
   });
 
   final String categoryId;
   final int? initialSimFilter;
   final IMessageRepository? repository;
+  final MessageSyncService? syncService;
+
+  @override
+  State<CategoryPage> createState() => _CategoryPageState();
+}
+
+class _CategoryPageState extends State<CategoryPage> {
+  late final IMessageRepository _repository;
+  late final MessageSyncService _syncService;
+  int? _simFilter;
+  String? _selectedBank;
+
+  @override
+  void initState() {
+    super.initState();
+    _repository =
+        widget.repository ?? AppDependencies.instance.messageRepository;
+    _syncService = widget.syncService ?? AppDependencies.instance.syncService;
+    _simFilter = widget.initialSimFilter;
+    if (widget.categoryId == 'bank') {
+      _syncService.backfillBankMetadata();
+    }
+  }
 
   String _emptyMessageForCategory(String id) {
     return switch (id) {
@@ -33,17 +62,46 @@ class CategoryPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final repo = repository ?? AppDependencies.instance.messageRepository;
+    final isBankCategory = widget.categoryId == 'bank';
 
     final category = AppConstants.mockCategories.firstWhere(
-      (c) => c.id == categoryId,
+      (c) => c.id == widget.categoryId,
       orElse: () => CategoryInfo(
-        id: categoryId,
-        name: 'دسته $categoryId',
+        id: widget.categoryId,
+        name: 'دسته ${widget.categoryId}',
         icon: Icons.folder_rounded,
         color: theme.colorScheme.primary,
       ),
     );
+
+    Widget buildPanel({List<String>? banks, String? effectiveBank}) {
+      return MessageListPanel(
+        repository: _repository,
+        initialSimFilter: widget.initialSimFilter,
+        emptyTitle: effectiveBank != null
+            ? 'پیامی از $effectiveBank یافت نشد'
+            : 'پیامی در «${category.name}» نیست',
+        emptySubtitle: _emptyMessageForCategory(widget.categoryId),
+        onSimChanged: (sim) => setState(() => _simFilter = sim),
+        extraFilterBar: isBankCategory && banks != null && banks.isNotEmpty
+            ? Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: BankFilterStrip(
+                  banks: banks,
+                  selectedBank: effectiveBank,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  onSelectBank: (bank) => setState(() => _selectedBank = bank),
+                ),
+              )
+            : null,
+        streamFactory: (sim, query) => _repository.watchByCategory(
+          widget.categoryId,
+          simSlot: sim,
+          bankName: effectiveBank,
+          searchQuery: query,
+        ),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -64,17 +122,19 @@ class CategoryPage extends StatelessWidget {
           onPressed: () => context.pop(),
         ),
       ),
-      body: MessageListPanel(
-        repository: repo,
-        initialSimFilter: initialSimFilter,
-        emptyTitle: 'پیامی در «${category.name}» نیست',
-        emptySubtitle: _emptyMessageForCategory(categoryId),
-        streamFactory: (sim, query) => repo.watchByCategory(
-          categoryId,
-          simSlot: sim,
-          searchQuery: query,
-        ),
-      ),
+      body: isBankCategory
+          ? StreamBuilder<List<String>>(
+              stream: _repository.watchDistinctBanks(simSlot: _simFilter),
+              builder: (context, banksSnapshot) {
+                final banks = banksSnapshot.data ?? const <String>[];
+                final effectiveBank =
+                    _selectedBank != null && banks.contains(_selectedBank)
+                        ? _selectedBank
+                        : null;
+                return buildPanel(banks: banks, effectiveBank: effectiveBank);
+              },
+            )
+          : buildPanel(),
     );
   }
 }

@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
+import '../../../../core/theme/bank_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/widgets/bank_filter_strip.dart';
 import '../../../../domain/entities/financial_insights.dart';
 
-/// Displays either the combined portfolio balance ("همه بانک‌ها") or the
-/// selected bank's latest balance along with per-card breakdown pills.
+/// Displays either the combined portfolio balance with small color-coded
+/// per-bank cards ("همه بانک‌ها") or a selected bank's latest balance & cards
+/// inside a neutral container card.
 class BankBalanceCard extends StatelessWidget {
   const BankBalanceCard({
     super.key,
@@ -13,12 +16,14 @@ class BankBalanceCard extends StatelessWidget {
     required this.unit,
     required this.onUnitChanged,
     this.selectedBank,
+    this.onSelectBank,
   });
 
   final PortfolioBalanceSummary portfolio;
   final CurrencyUnit unit;
   final ValueChanged<CurrencyUnit> onUnitChanged;
   final String? selectedBank;
+  final ValueChanged<String?>? onSelectBank;
 
   String _formatDateTime(DateTime dt) {
     final j = JalaliDate.fromDateTime(dt);
@@ -30,6 +35,7 @@ class BankBalanceCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final isDark = theme.brightness == Brightness.dark;
     final isSingleBank = selectedBank != null;
 
     BankBalanceSummary? singleBankSummary;
@@ -71,27 +77,27 @@ class BankBalanceCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Expanded(
-                  child: Row(
+                  child: Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Icon(
                         Icons.account_balance_wallet_rounded,
                         size: 20,
                         color: theme.colorScheme.secondary,
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          isSingleBank
-                              ? 'موجودی مانده • $selectedBank'
-                              : 'مجموع کل موجودی بانک‌ها',
-                          style: theme.textTheme.titleSmall?.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: theme.colorScheme.onSecondaryContainer,
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
+                      Text(
+                        isSingleBank
+                            ? 'موجودی مانده'
+                            : 'مجموع کل موجودی بانک‌ها',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: theme.colorScheme.onSecondaryContainer,
                         ),
                       ),
+                      if (isSingleBank)
+                        BankNameBadge(bankName: selectedBank!),
                     ],
                   ),
                 ),
@@ -146,7 +152,108 @@ class BankBalanceCard extends StatelessWidget {
                 ],
               ),
 
-              // Show per-card balances when inspecting a single bank with card tails
+              // Portfolio mode ("همه بانک‌ها"): small soft colored cards per bank (Image-1 pill style)
+              if (!isSingleBank && portfolio.banks.isNotEmpty) ...[
+                const SizedBox(height: 12),
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final columns = portfolio.banks.length == 1 ? 1 : 2;
+                    const spacing = 8.0;
+                    final tileWidth =
+                        (constraints.maxWidth - spacing * (columns - 1)) /
+                            columns;
+
+                    return Wrap(
+                      spacing: spacing,
+                      runSpacing: spacing,
+                      children: portfolio.banks.map((bank) {
+                        final bankColor = BankColors.colorFor(bank.bankName);
+                        final accentText = BankColors.readableAccent(
+                          bankColor,
+                          theme.brightness,
+                        );
+
+                        return SizedBox(
+                          width: tileWidth,
+                          child: Material(
+                            color: bankColor.withValues(
+                              alpha: isDark ? 0.18 : 0.11,
+                            ),
+                            borderRadius: BorderRadius.circular(10),
+                            clipBehavior: Clip.antiAlias,
+                            child: InkWell(
+                              onTap: onSelectBank == null
+                                  ? null
+                                  : () => onSelectBank!(bank.bankName),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(10),
+                                  border: Border.all(
+                                    color: bankColor.withValues(
+                                      alpha: isDark ? 0.40 : 0.28,
+                                    ),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Container(
+                                          width: 8,
+                                          height: 8,
+                                          decoration: BoxDecoration(
+                                            color: bankColor,
+                                            shape: BoxShape.circle,
+                                          ),
+                                        ),
+                                        const SizedBox(width: 6),
+                                        Expanded(
+                                          child: Text(
+                                            bank.bankName,
+                                            style: theme.textTheme.labelSmall
+                                                ?.copyWith(
+                                              color:
+                                                  theme.colorScheme.onSurface,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      CurrencyFormatter.format(
+                                        bank.totalBalanceRial,
+                                        unit,
+                                      ),
+                                      style:
+                                          theme.textTheme.labelMedium?.copyWith(
+                                        color: accentText,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }).toList(),
+                    );
+                  },
+                ),
+              ],
+
+              // Single bank mode: neutral per-card breakdown pills
               if (isSingleBank &&
                   singleBankSummary != null &&
                   (singleBankSummary.cards.length > 1 ||

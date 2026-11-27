@@ -18,6 +18,8 @@ class MessageListPanel extends StatefulWidget {
     this.emptyTitle = 'هیچ پیامی یافت نشد',
     this.emptySubtitle = 'در این بخش پیامی ثبت نشده است.',
     this.onRetry,
+    this.onSimChanged,
+    this.extraFilterBar,
   });
 
   final IMessageRepository repository;
@@ -29,6 +31,8 @@ class MessageListPanel extends StatefulWidget {
   final String emptyTitle;
   final String emptySubtitle;
   final VoidCallback? onRetry;
+  final ValueChanged<int?>? onSimChanged;
+  final Widget? extraFilterBar;
 
   @override
   State<MessageListPanel> createState() => _MessageListPanelState();
@@ -104,21 +108,30 @@ class _MessageListPanelState extends State<MessageListPanel> {
                   FilterChip(
                     label: const Text('همه پیام‌ها'),
                     selected: _simFilter == null,
-                    onSelected: (_) => setState(() => _simFilter = null),
+                    onSelected: (_) {
+                      setState(() => _simFilter = null);
+                      widget.onSimChanged?.call(null);
+                    },
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
                     avatar: const Icon(Icons.sim_card_outlined, size: 16),
                     label: const Text('سیم‌کارت ۱'),
                     selected: _simFilter == 1,
-                    onSelected: (_) => setState(() => _simFilter = 1),
+                    onSelected: (_) {
+                      setState(() => _simFilter = 1);
+                      widget.onSimChanged?.call(1);
+                    },
                   ),
                   const SizedBox(width: 8),
                   FilterChip(
                     avatar: const Icon(Icons.sim_card_outlined, size: 16),
                     label: const Text('سیم‌کارت ۲'),
                     selected: _simFilter == 2,
-                    onSelected: (_) => setState(() => _simFilter = 2),
+                    onSelected: (_) {
+                      setState(() => _simFilter = 2);
+                      widget.onSimChanged?.call(2);
+                    },
                   ),
                   const SizedBox(width: 12),
                   Text(
@@ -131,6 +144,8 @@ class _MessageListPanelState extends State<MessageListPanel> {
                 ],
               ),
             ),
+
+            if (widget.extraFilterBar != null) widget.extraFilterBar!,
 
             const Divider(height: 1),
 

@@ -636,6 +636,7 @@ class MessageClassifier {
         text.contains('بستانکار') ||
         text.contains('برگشت وجه') ||
         text.contains('سود سپرده') ||
+        text.contains('variz') ||
         text.contains('deposit') ||
         text.contains('credit')) {
       txType = TransactionType.credit;
@@ -648,6 +649,7 @@ class MessageClassifier {
         text.contains('پرداخت') ||
         text.contains('کارت به کارت') ||
         text.contains('کارمزد') ||
+        text.contains('bardasht') ||
         text.contains('withdraw') ||
         text.contains('debit') ||
         text.contains('purchase')) {

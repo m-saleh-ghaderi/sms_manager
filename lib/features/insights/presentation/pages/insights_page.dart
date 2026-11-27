@@ -6,6 +6,7 @@ import '../../../../core/theme/app_colors.dart';
 import '../../../../core/utils/currency_formatter.dart';
 import '../../../../core/utils/debug_bank_sms_seeder.dart';
 import '../../../../core/utils/jalali_date.dart';
+import '../../../../core/widgets/bank_filter_strip.dart';
 import '../../../../data/sync/message_sync_service.dart';
 import '../../../../domain/entities/financial_insights.dart';
 import '../../../../domain/entities/message_entity.dart';
@@ -196,7 +197,7 @@ class _InsightsPageState extends State<InsightsPage> {
                     padding: const EdgeInsets.fromLTRB(16, 10, 16, 24),
                     children: [
                       // Dynamic User Bank Filter Strip
-                      _BankFilterStrip(
+                      BankFilterStrip(
                         banks: availableBanks,
                         selectedBank: effectiveBank,
                         onSelectBank: (bank) =>
@@ -254,6 +255,8 @@ class _InsightsPageState extends State<InsightsPage> {
                         portfolio: portfolio,
                         selectedBank: effectiveBank,
                         unit: _currencyUnit,
+                        onSelectBank: (bank) =>
+                            setState(() => _selectedBank = bank),
                         onUnitChanged: (unit) =>
                             setState(() => _currencyUnit = unit),
                       ),
@@ -361,49 +364,6 @@ class _InsightsPageState extends State<InsightsPage> {
                 },
               );
             },
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _BankFilterStrip extends StatelessWidget {
-  const _BankFilterStrip({
-    required this.banks,
-    required this.selectedBank,
-    required this.onSelectBank,
-  });
-
-  final List<String> banks;
-  final String? selectedBank;
-  final ValueChanged<String?> onSelectBank;
-
-  @override
-  Widget build(BuildContext context) {
-    final itemCount = 1 + banks.length;
-
-    return SizedBox(
-      height: 40,
-      child: ListView.separated(
-        scrollDirection: Axis.horizontal,
-        itemCount: itemCount,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
-        itemBuilder: (context, index) {
-          if (index == 0) {
-            return ChoiceChip(
-              avatar: const Icon(Icons.account_balance_rounded, size: 16),
-              label: const Text('همه بانک‌ها'),
-              selected: selectedBank == null,
-              onSelected: (_) => onSelectBank(null),
-            );
-          }
-
-          final bankName = banks[index - 1];
-          return ChoiceChip(
-            label: Text(bankName),
-            selected: selectedBank == bankName,
-            onSelected: (_) => onSelectBank(bankName),
           );
         },
       ),

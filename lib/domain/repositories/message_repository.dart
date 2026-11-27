@@ -31,6 +31,7 @@ abstract interface class IMessageRepository {
   Stream<List<MessageEntity>> watchByCategory(
     String categoryId, {
     int? simSlot,
+    String? bankName,
     String? searchQuery,
   });
 
