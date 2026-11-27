@@ -51,6 +51,15 @@ class BankTransactionTile extends StatelessWidget {
         ? '${isCredit ? '\u200E+' : isDebit ? '\u200E-' : ''}$formattedValue $unitText'
         : 'اطلاع‌رسانی بانکی';
 
+    final displayBankTitle = message.bankName?.trim().isNotEmpty == true
+        ? message.bankName!.trim()
+        : (message.address.isEmpty ? 'بانک ناشناس' : message.address);
+    final cardSuffix =
+        message.cardTail != null ? ' • کارت ${message.cardTail}' : '';
+    final balanceText = message.balanceRial != null
+        ? 'مانده: ${CurrencyFormatter.format(message.balanceRial!, unit)}'
+        : null;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: InkWell(
@@ -74,9 +83,7 @@ class BankTransactionTile extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            message.address.isEmpty
-                                ? 'بانک ناشناس'
-                                : message.address,
+                            '$displayBankTitle$cardSuffix',
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.bold,
                             ),
@@ -114,12 +121,28 @@ class BankTransactionTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 4),
-                    Text(
-                      dateLabel,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: theme.colorScheme.outline,
-                        fontSize: 11,
-                      ),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 2,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [
+                        Text(
+                          dateLabel,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: theme.colorScheme.outline,
+                            fontSize: 11,
+                          ),
+                        ),
+                        if (balanceText != null)
+                          Text(
+                            balanceText,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.secondary,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                      ],
                     ),
                   ],
                 ),
