@@ -12,5 +12,20 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'sms_manager_db'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 2;
+
+  @override
+  MigrationStrategy get migration => MigrationStrategy(
+        onCreate: (m) => m.createAll(),
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(messages, messages.bankName);
+            await m.addColumn(messages, messages.balanceRial);
+            await m.addColumn(messages, messages.cardTail);
+            await customStatement(
+              'CREATE INDEX IF NOT EXISTS idx_messages_bank_name ON messages (bank_name)',
+            );
+          }
+        },
+      );
 }

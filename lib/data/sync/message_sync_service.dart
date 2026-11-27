@@ -1,4 +1,5 @@
 import '../../core/utils/phone_normalizer.dart';
+import '../../domain/classifier/bank_identifier.dart';
 import '../../domain/classifier/message_classifier.dart';
 import '../../domain/entities/message_entity.dart';
 import '../../domain/entities/sms_entity.dart';
@@ -28,8 +29,11 @@ class MessageSyncService {
 
   /// Imports new SMS messages from the device inbox into local SQLite.
   ///
+  /// Also ensures previously synced bank SMS have extracted bank/balance metadata.
   /// Returns the number of synced messages.
   Future<int> syncInbox({int batchLimit = 500}) async {
+    await backfillBankMetadata();
+
     final latestSmsId = await messageRepository.getLatestSmsId();
     final rawMessages = await smsSource.readInbox(
       afterSmsId: latestSmsId,
@@ -48,6 +52,35 @@ class MessageSyncService {
 
     await messageRepository.upsertMessages(entities);
     return entities.length;
+  }
+
+  /// Populates `bankName`, `balanceRial`, and `cardTail` for existing `'bank'`
+  /// messages stored prior to schema v2.
+  Future<int> backfillBankMetadata() async {
+    final pending = await messageRepository.getBankMessagesNeedingBackfill();
+    if (pending.isEmpty) return 0;
+
+    final updated = pending.map((msg) {
+      final result = classifier.classify(
+        body: msg.body,
+        senderAddress: msg.address,
+      );
+      final resolvedBank = result.bankName ??
+          BankIdentifier.resolveBankName(
+            rawBody: msg.body,
+            rawAddress: msg.address,
+          );
+      return msg.copyWith(
+        amountRial: result.amountRial ?? msg.amountRial,
+        txType: result.txType ?? msg.txType,
+        bankName: resolvedBank,
+        balanceRial: result.balanceRial ?? msg.balanceRial,
+        cardTail: result.cardTail ?? msg.cardTail,
+      );
+    }).toList();
+
+    await messageRepository.updateBankMetadataBatch(updated);
+    return updated.length;
   }
 
   /// Classifies and persists a single live-received SMS payload immediately.
@@ -130,6 +163,9 @@ class MessageSyncService {
       primaryCategory: result.categoryId,
       amountRial: result.amountRial,
       txType: result.txType,
+      bankName: result.bankName,
+      balanceRial: result.balanceRial,
+      cardTail: result.cardTail,
     );
   }
 }

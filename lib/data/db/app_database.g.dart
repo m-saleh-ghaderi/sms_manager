@@ -170,6 +170,39 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _bankNameMeta = const VerificationMeta(
+    'bankName',
+  );
+  @override
+  late final GeneratedColumn<String> bankName = GeneratedColumn<String>(
+    'bank_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _balanceRialMeta = const VerificationMeta(
+    'balanceRial',
+  );
+  @override
+  late final GeneratedColumn<int> balanceRial = GeneratedColumn<int>(
+    'balance_rial',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cardTailMeta = const VerificationMeta(
+    'cardTail',
+  );
+  @override
+  late final GeneratedColumn<String> cardTail = GeneratedColumn<String>(
+    'card_tail',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _userOverrideMeta = const VerificationMeta(
     'userOverride',
   );
@@ -201,6 +234,9 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
     isPinned,
     amountRial,
     txType,
+    bankName,
+    balanceRial,
+    cardTail,
     userOverride,
   ];
   @override
@@ -312,6 +348,27 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
         txType.isAcceptableOrUnknown(data['tx_type']!, _txTypeMeta),
       );
     }
+    if (data.containsKey('bank_name')) {
+      context.handle(
+        _bankNameMeta,
+        bankName.isAcceptableOrUnknown(data['bank_name']!, _bankNameMeta),
+      );
+    }
+    if (data.containsKey('balance_rial')) {
+      context.handle(
+        _balanceRialMeta,
+        balanceRial.isAcceptableOrUnknown(
+          data['balance_rial']!,
+          _balanceRialMeta,
+        ),
+      );
+    }
+    if (data.containsKey('card_tail')) {
+      context.handle(
+        _cardTailMeta,
+        cardTail.isAcceptableOrUnknown(data['card_tail']!, _cardTailMeta),
+      );
+    }
     if (data.containsKey('user_override')) {
       context.handle(
         _userOverrideMeta,
@@ -386,6 +443,18 @@ class $MessagesTable extends Messages with TableInfo<$MessagesTable, Message> {
         DriftSqlType.string,
         data['${effectivePrefix}tx_type'],
       ),
+      bankName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}bank_name'],
+      ),
+      balanceRial: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}balance_rial'],
+      ),
+      cardTail: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}card_tail'],
+      ),
       userOverride: attachedDatabase.typeMapping.read(
         DriftSqlType.bool,
         data['${effectivePrefix}user_override'],
@@ -441,6 +510,15 @@ class Message extends DataClass implements Insertable<Message> {
   /// Parsed transaction type (`credit` or `debit`, nullable).
   final String? txType;
 
+  /// Canonical Persian bank display name (bank messages only).
+  final String? bankName;
+
+  /// Parsed post-transaction account/card balance in Rials (nullable).
+  final int? balanceRial;
+
+  /// Last 4 digits of card/account number when present (nullable).
+  final String? cardTail;
+
   /// Whether the user manually overrode [primaryCategory].
   final bool userOverride;
   const Message({
@@ -458,6 +536,9 @@ class Message extends DataClass implements Insertable<Message> {
     required this.isPinned,
     this.amountRial,
     this.txType,
+    this.bankName,
+    this.balanceRial,
+    this.cardTail,
     required this.userOverride,
   });
   @override
@@ -482,6 +563,15 @@ class Message extends DataClass implements Insertable<Message> {
     }
     if (!nullToAbsent || txType != null) {
       map['tx_type'] = Variable<String>(txType);
+    }
+    if (!nullToAbsent || bankName != null) {
+      map['bank_name'] = Variable<String>(bankName);
+    }
+    if (!nullToAbsent || balanceRial != null) {
+      map['balance_rial'] = Variable<int>(balanceRial);
+    }
+    if (!nullToAbsent || cardTail != null) {
+      map['card_tail'] = Variable<String>(cardTail);
     }
     map['user_override'] = Variable<bool>(userOverride);
     return map;
@@ -509,6 +599,15 @@ class Message extends DataClass implements Insertable<Message> {
       txType: txType == null && nullToAbsent
           ? const Value.absent()
           : Value(txType),
+      bankName: bankName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(bankName),
+      balanceRial: balanceRial == null && nullToAbsent
+          ? const Value.absent()
+          : Value(balanceRial),
+      cardTail: cardTail == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cardTail),
       userOverride: Value(userOverride),
     );
   }
@@ -533,6 +632,9 @@ class Message extends DataClass implements Insertable<Message> {
       isPinned: serializer.fromJson<bool>(json['isPinned']),
       amountRial: serializer.fromJson<int?>(json['amountRial']),
       txType: serializer.fromJson<String?>(json['txType']),
+      bankName: serializer.fromJson<String?>(json['bankName']),
+      balanceRial: serializer.fromJson<int?>(json['balanceRial']),
+      cardTail: serializer.fromJson<String?>(json['cardTail']),
       userOverride: serializer.fromJson<bool>(json['userOverride']),
     );
   }
@@ -554,6 +656,9 @@ class Message extends DataClass implements Insertable<Message> {
       'isPinned': serializer.toJson<bool>(isPinned),
       'amountRial': serializer.toJson<int?>(amountRial),
       'txType': serializer.toJson<String?>(txType),
+      'bankName': serializer.toJson<String?>(bankName),
+      'balanceRial': serializer.toJson<int?>(balanceRial),
+      'cardTail': serializer.toJson<String?>(cardTail),
       'userOverride': serializer.toJson<bool>(userOverride),
     };
   }
@@ -573,6 +678,9 @@ class Message extends DataClass implements Insertable<Message> {
     bool? isPinned,
     Value<int?> amountRial = const Value.absent(),
     Value<String?> txType = const Value.absent(),
+    Value<String?> bankName = const Value.absent(),
+    Value<int?> balanceRial = const Value.absent(),
+    Value<String?> cardTail = const Value.absent(),
     bool? userOverride,
   }) => Message(
     id: id ?? this.id,
@@ -589,6 +697,9 @@ class Message extends DataClass implements Insertable<Message> {
     isPinned: isPinned ?? this.isPinned,
     amountRial: amountRial.present ? amountRial.value : this.amountRial,
     txType: txType.present ? txType.value : this.txType,
+    bankName: bankName.present ? bankName.value : this.bankName,
+    balanceRial: balanceRial.present ? balanceRial.value : this.balanceRial,
+    cardTail: cardTail.present ? cardTail.value : this.cardTail,
     userOverride: userOverride ?? this.userOverride,
   );
   Message copyWithCompanion(MessagesCompanion data) {
@@ -615,6 +726,11 @@ class Message extends DataClass implements Insertable<Message> {
           ? data.amountRial.value
           : this.amountRial,
       txType: data.txType.present ? data.txType.value : this.txType,
+      bankName: data.bankName.present ? data.bankName.value : this.bankName,
+      balanceRial: data.balanceRial.present
+          ? data.balanceRial.value
+          : this.balanceRial,
+      cardTail: data.cardTail.present ? data.cardTail.value : this.cardTail,
       userOverride: data.userOverride.present
           ? data.userOverride.value
           : this.userOverride,
@@ -638,6 +754,9 @@ class Message extends DataClass implements Insertable<Message> {
           ..write('isPinned: $isPinned, ')
           ..write('amountRial: $amountRial, ')
           ..write('txType: $txType, ')
+          ..write('bankName: $bankName, ')
+          ..write('balanceRial: $balanceRial, ')
+          ..write('cardTail: $cardTail, ')
           ..write('userOverride: $userOverride')
           ..write(')'))
         .toString();
@@ -659,6 +778,9 @@ class Message extends DataClass implements Insertable<Message> {
     isPinned,
     amountRial,
     txType,
+    bankName,
+    balanceRial,
+    cardTail,
     userOverride,
   );
   @override
@@ -679,6 +801,9 @@ class Message extends DataClass implements Insertable<Message> {
           other.isPinned == this.isPinned &&
           other.amountRial == this.amountRial &&
           other.txType == this.txType &&
+          other.bankName == this.bankName &&
+          other.balanceRial == this.balanceRial &&
+          other.cardTail == this.cardTail &&
           other.userOverride == this.userOverride);
 }
 
@@ -697,6 +822,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
   final Value<bool> isPinned;
   final Value<int?> amountRial;
   final Value<String?> txType;
+  final Value<String?> bankName;
+  final Value<int?> balanceRial;
+  final Value<String?> cardTail;
   final Value<bool> userOverride;
   const MessagesCompanion({
     this.id = const Value.absent(),
@@ -713,6 +841,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     this.isPinned = const Value.absent(),
     this.amountRial = const Value.absent(),
     this.txType = const Value.absent(),
+    this.bankName = const Value.absent(),
+    this.balanceRial = const Value.absent(),
+    this.cardTail = const Value.absent(),
     this.userOverride = const Value.absent(),
   });
   MessagesCompanion.insert({
@@ -730,6 +861,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     this.isPinned = const Value.absent(),
     this.amountRial = const Value.absent(),
     this.txType = const Value.absent(),
+    this.bankName = const Value.absent(),
+    this.balanceRial = const Value.absent(),
+    this.cardTail = const Value.absent(),
     this.userOverride = const Value.absent(),
   }) : smsId = Value(smsId),
        address = Value(address),
@@ -751,6 +885,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     Expression<bool>? isPinned,
     Expression<int>? amountRial,
     Expression<String>? txType,
+    Expression<String>? bankName,
+    Expression<int>? balanceRial,
+    Expression<String>? cardTail,
     Expression<bool>? userOverride,
   }) {
     return RawValuesInsertable({
@@ -768,6 +905,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       if (isPinned != null) 'is_pinned': isPinned,
       if (amountRial != null) 'amount_rial': amountRial,
       if (txType != null) 'tx_type': txType,
+      if (bankName != null) 'bank_name': bankName,
+      if (balanceRial != null) 'balance_rial': balanceRial,
+      if (cardTail != null) 'card_tail': cardTail,
       if (userOverride != null) 'user_override': userOverride,
     });
   }
@@ -787,6 +927,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     Value<bool>? isPinned,
     Value<int?>? amountRial,
     Value<String?>? txType,
+    Value<String?>? bankName,
+    Value<int?>? balanceRial,
+    Value<String?>? cardTail,
     Value<bool>? userOverride,
   }) {
     return MessagesCompanion(
@@ -804,6 +947,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
       isPinned: isPinned ?? this.isPinned,
       amountRial: amountRial ?? this.amountRial,
       txType: txType ?? this.txType,
+      bankName: bankName ?? this.bankName,
+      balanceRial: balanceRial ?? this.balanceRial,
+      cardTail: cardTail ?? this.cardTail,
       userOverride: userOverride ?? this.userOverride,
     );
   }
@@ -853,6 +999,15 @@ class MessagesCompanion extends UpdateCompanion<Message> {
     if (txType.present) {
       map['tx_type'] = Variable<String>(txType.value);
     }
+    if (bankName.present) {
+      map['bank_name'] = Variable<String>(bankName.value);
+    }
+    if (balanceRial.present) {
+      map['balance_rial'] = Variable<int>(balanceRial.value);
+    }
+    if (cardTail.present) {
+      map['card_tail'] = Variable<String>(cardTail.value);
+    }
     if (userOverride.present) {
       map['user_override'] = Variable<bool>(userOverride.value);
     }
@@ -876,6 +1031,9 @@ class MessagesCompanion extends UpdateCompanion<Message> {
           ..write('isPinned: $isPinned, ')
           ..write('amountRial: $amountRial, ')
           ..write('txType: $txType, ')
+          ..write('bankName: $bankName, ')
+          ..write('balanceRial: $balanceRial, ')
+          ..write('cardTail: $cardTail, ')
           ..write('userOverride: $userOverride')
           ..write(')'))
         .toString();
@@ -898,6 +1056,10 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     'idx_messages_sim_slot',
     'CREATE INDEX idx_messages_sim_slot ON messages (sim_slot)',
   );
+  late final Index idxMessagesBankName = Index(
+    'idx_messages_bank_name',
+    'CREATE INDEX idx_messages_bank_name ON messages (bank_name)',
+  );
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -907,6 +1069,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     idxMessagesCategory,
     idxMessagesDate,
     idxMessagesSimSlot,
+    idxMessagesBankName,
   ];
 }
 
@@ -926,6 +1089,9 @@ typedef $$MessagesTableCreateCompanionBuilder =
       Value<bool> isPinned,
       Value<int?> amountRial,
       Value<String?> txType,
+      Value<String?> bankName,
+      Value<int?> balanceRial,
+      Value<String?> cardTail,
       Value<bool> userOverride,
     });
 typedef $$MessagesTableUpdateCompanionBuilder =
@@ -944,6 +1110,9 @@ typedef $$MessagesTableUpdateCompanionBuilder =
       Value<bool> isPinned,
       Value<int?> amountRial,
       Value<String?> txType,
+      Value<String?> bankName,
+      Value<int?> balanceRial,
+      Value<String?> cardTail,
       Value<bool> userOverride,
     });
 
@@ -1023,6 +1192,21 @@ class $$MessagesTableFilterComposer
 
   ColumnFilters<String> get txType => $composableBuilder(
     column: $table.txType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get bankName => $composableBuilder(
+    column: $table.bankName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get balanceRial => $composableBuilder(
+    column: $table.balanceRial,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get cardTail => $composableBuilder(
+    column: $table.cardTail,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -1111,6 +1295,21 @@ class $$MessagesTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get bankName => $composableBuilder(
+    column: $table.bankName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get balanceRial => $composableBuilder(
+    column: $table.balanceRial,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get cardTail => $composableBuilder(
+    column: $table.cardTail,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<bool> get userOverride => $composableBuilder(
     column: $table.userOverride,
     builder: (column) => ColumnOrderings(column),
@@ -1176,6 +1375,17 @@ class $$MessagesTableAnnotationComposer
   GeneratedColumn<String> get txType =>
       $composableBuilder(column: $table.txType, builder: (column) => column);
 
+  GeneratedColumn<String> get bankName =>
+      $composableBuilder(column: $table.bankName, builder: (column) => column);
+
+  GeneratedColumn<int> get balanceRial => $composableBuilder(
+    column: $table.balanceRial,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get cardTail =>
+      $composableBuilder(column: $table.cardTail, builder: (column) => column);
+
   GeneratedColumn<bool> get userOverride => $composableBuilder(
     column: $table.userOverride,
     builder: (column) => column,
@@ -1224,6 +1434,9 @@ class $$MessagesTableTableManager
                 Value<bool> isPinned = const Value.absent(),
                 Value<int?> amountRial = const Value.absent(),
                 Value<String?> txType = const Value.absent(),
+                Value<String?> bankName = const Value.absent(),
+                Value<int?> balanceRial = const Value.absent(),
+                Value<String?> cardTail = const Value.absent(),
                 Value<bool> userOverride = const Value.absent(),
               }) => MessagesCompanion(
                 id: id,
@@ -1240,6 +1453,9 @@ class $$MessagesTableTableManager
                 isPinned: isPinned,
                 amountRial: amountRial,
                 txType: txType,
+                bankName: bankName,
+                balanceRial: balanceRial,
+                cardTail: cardTail,
                 userOverride: userOverride,
               ),
           createCompanionCallback:
@@ -1258,6 +1474,9 @@ class $$MessagesTableTableManager
                 Value<bool> isPinned = const Value.absent(),
                 Value<int?> amountRial = const Value.absent(),
                 Value<String?> txType = const Value.absent(),
+                Value<String?> bankName = const Value.absent(),
+                Value<int?> balanceRial = const Value.absent(),
+                Value<String?> cardTail = const Value.absent(),
                 Value<bool> userOverride = const Value.absent(),
               }) => MessagesCompanion.insert(
                 id: id,
@@ -1274,6 +1493,9 @@ class $$MessagesTableTableManager
                 isPinned: isPinned,
                 amountRial: amountRial,
                 txType: txType,
+                bankName: bankName,
+                balanceRial: balanceRial,
+                cardTail: cardTail,
                 userOverride: userOverride,
               ),
           withReferenceMapper: (p0) => p0

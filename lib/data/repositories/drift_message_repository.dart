@@ -175,15 +175,104 @@ class DriftMessageRepository implements IMessageRepository {
   @override
   Stream<List<MessageEntity>> watchBankTransactions({
     int? simSlot,
+    String? bankName,
     DateTime? startDate,
     DateTime? endDate,
   }) {
     return _watchFilteredMessages(
       categoryId: 'bank',
       simSlot: simSlot,
+      bankName: bankName,
       startDate: startDate,
       endDate: endDate,
     );
+  }
+
+  @override
+  Stream<List<String>> watchDistinctBanks({int? simSlot}) {
+    final simFilter = simSlot != null ? 'AND sim_slot = ?' : '';
+    final variables = simSlot != null
+        ? [Variable.withInt(simSlot)]
+        : const <Variable<Object>>[];
+
+    final query = _db.customSelect(
+      '''
+      SELECT
+        bank_name,
+        COUNT(*) AS tx_count,
+        MAX(date) AS latest_date
+      FROM messages
+      WHERE primary_category = 'bank'
+        AND bank_name IS NOT NULL
+        AND TRIM(bank_name) != ''
+        $simFilter
+      GROUP BY bank_name
+      ORDER BY tx_count DESC, latest_date DESC
+      ''',
+      variables: variables,
+      readsFrom: {_db.messages},
+    );
+
+    return query.watch().map(
+          (rows) => rows.map((row) => row.read<String>('bank_name')).toList(),
+        );
+  }
+
+  @override
+  Stream<List<MessageEntity>> watchBankBalanceMessages({
+    int? simSlot,
+    String? bankName,
+  }) {
+    final query = _db.select(_db.messages)
+      ..where((t) {
+        Expression<bool> predicate =
+            t.primaryCategory.equals('bank') & t.balanceRial.isNotNull();
+        if (simSlot != null) {
+          predicate = predicate & t.simSlot.equals(simSlot);
+        }
+        if (bankName != null) {
+          predicate = predicate & t.bankName.equals(bankName);
+        }
+        return predicate;
+      })
+      ..orderBy([
+        (t) => OrderingTerm.desc(t.date),
+        (t) => OrderingTerm.desc(t.smsId),
+      ]);
+
+    return query.watch().map((rows) => rows.map(_toEntity).toList());
+  }
+
+  @override
+  Future<List<MessageEntity>> getBankMessagesNeedingBackfill() async {
+    final rows = await (_db.select(_db.messages)
+          ..where(
+            (t) => t.primaryCategory.equals('bank') & t.bankName.isNull(),
+          ))
+        .get();
+    return rows.map(_toEntity).toList();
+  }
+
+  @override
+  Future<void> updateBankMetadataBatch(List<MessageEntity> updated) async {
+    if (updated.isEmpty) return;
+    await _db.transaction(() async {
+      await _db.batch((batch) {
+        for (final msg in updated) {
+          batch.update(
+            _db.messages,
+            MessagesCompanion(
+              amountRial: Value(msg.amountRial),
+              txType: Value(msg.txType?.name),
+              bankName: Value(msg.bankName),
+              balanceRial: Value(msg.balanceRial),
+              cardTail: Value(msg.cardTail),
+            ),
+            where: (t) => t.smsId.equals(msg.smsId),
+          );
+        }
+      });
+    });
   }
 
   @override
@@ -288,6 +377,7 @@ class DriftMessageRepository implements IMessageRepository {
     bool? isStarred,
     bool? isPinned,
     int? simSlot,
+    String? bankName,
     String? searchQuery,
     DateTime? startDate,
     DateTime? endDate,
@@ -308,6 +398,9 @@ class DriftMessageRepository implements IMessageRepository {
         }
         if (simSlot != null) {
           predicate = predicate & t.simSlot.equals(simSlot);
+        }
+        if (bankName != null) {
+          predicate = predicate & t.bankName.equals(bankName);
         }
         if (startDate != null) {
           predicate = predicate & t.date.isBiggerOrEqualValue(startDate);
@@ -364,6 +457,9 @@ class DriftMessageRepository implements IMessageRepository {
       isPinned: Value(entity.isPinned),
       amountRial: Value(entity.amountRial),
       txType: Value(entity.txType?.name),
+      bankName: Value(entity.bankName),
+      balanceRial: Value(entity.balanceRial),
+      cardTail: Value(entity.cardTail),
       userOverride: Value(entity.userOverride),
     );
   }
@@ -384,6 +480,9 @@ class DriftMessageRepository implements IMessageRepository {
       isPinned: row.isPinned,
       amountRial: row.amountRial,
       txType: _parseTxType(row.txType),
+      bankName: row.bankName,
+      balanceRial: row.balanceRial,
+      cardTail: row.cardTail,
       userOverride: row.userOverride,
     );
   }
